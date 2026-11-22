@@ -1,6 +1,6 @@
 # DRONE WATCH User Guide
 
-Last updated November 4, 2026. Try the device in your browser: [DRONE WATCH field simulator](https://pkkshadow.github.io/drone-watch-demo/).
+Last updated November 21, 2026. Try the device in your browser: [DRONE WATCH field simulator](https://pkkshadow.github.io/drone-watch-demo/). The simulator runs the November 4 firmware, so it doesn't have the Bluetooth board or network-name hints described below yet.
 
 ## What DRONE WATCH is
 
@@ -8,7 +8,7 @@ DRONE WATCH is a small box that tells you when a drone is nearby, by listening. 
 
 It listens in two ways:
 
-- **Radio.** Most new drones must broadcast a digital "license plate" called Remote ID. DRONE WATCH picks that up and shows the drone's ID, its position and height, and where its pilot is standing. It also notices radio signals that only certain drone makers use, and the kind of Wi-Fi video link some FPV racing drones use.
+- **Radio.** Most new drones must broadcast a digital "license plate" called Remote ID, over Wi-Fi or Bluetooth. DRONE WATCH picks up both and shows the drone's ID, its position and height, and where its pilot is standing. It also notices radio signals and Wi-Fi network names that only drones use, and the kind of Wi-Fi video link some FPV racing drones use.
 - **Sound.** Four small microphones on a cross-shaped arm hear the buzz that propellers make. The device tells a drone's buzz apart from other noises and points to which direction it is coming from.
 
 You don't need to know anything about drones to use it. Set it up outside, switch it on, and watch the screen and the lights. A beep tells you when something new shows up.
@@ -19,8 +19,8 @@ A drone is a small flying machine, usually with four propellers, steered by a pi
 
 | Kind | What it looks and sounds like | How DRONE WATCH notices it |
 | --- | --- | --- |
-| Camera drone (DJI Mavic, Mini, Air; Autel) | Grey or white, 0.5 to 2 lb, hovers steadily for photos. A steady, mid-pitched hum. | Remote ID by radio, plus sound |
-| Older or budget camera drone | Often connects to a phone over Wi-Fi. | Its maker's Wi-Fi signal (a hint), plus sound |
+| Camera drone (DJI Mavic, Mini, Air; Autel) | Grey or white, 0.5 to 2 lb, hovers steadily for photos. A steady, mid-pitched hum. | Remote ID by radio (Wi-Fi or Bluetooth), plus sound |
+| Older or budget camera drone | Often connects to a phone over Wi-Fi. | Its maker's Wi-Fi signal or network name (a hint), plus sound |
 | FPV racing or freestyle drone | Small and very fast, flown through video goggles. A high-pitched whine that changes pitch quickly. | Sound; a Wi-Fi video link if it uses one |
 | Large drone (crop spraying, film, delivery) | Big, often six or eight propellers. A deep, low drone. | Remote ID by radio, plus sound |
 
@@ -34,24 +34,28 @@ A few facts make the screens easier to read:
 
 ## How it works
 
-Two small computers inside the box share the work. A radio scanner (the XIAO ESP32-C5) listens to Wi-Fi. The main board (the ESP32-S3) listens to the microphones and runs the screen, lights and buzzer.
+Three small computers inside the box share the work:
 
-![How DRONE WATCH hears a drone: four signals, two sensors, one main board](img/how-it-works.png)
+- a Wi-Fi scanner (the XIAO ESP32-C5);
+- a Bluetooth scanner (the XIAO ESP32-C3);
+- the main board (the ESP32-S3), which listens to the microphones and runs the screen, lights and buzzer.
 
-Three of the four signals are radio and go to the scanner; propeller sound goes to the microphones. The main board combines both and decides what to show.
+![How DRONE WATCH hears a drone: five signals, three sensors, one main board](img/how-it-works.png)
+
+The radio signals go to the two scanners; propeller sound goes to the microphones. The main board combines all three and decides what to show.
 
 ### The radio side
 
-The scanner hops between Wi-Fi channels every eighth of a second. Channel 6 gets every other turn, because Remote ID usually lives there, and a short visit to the 5 GHz band is part of each round. It reports four kinds of find to the main board:
+The Wi-Fi scanner hops between Wi-Fi channels every eighth of a second. Channel 6 gets every other turn, because Remote ID usually lives there, and a short visit to the 5 GHz band is part of each round. It reports four kinds of find to the main board:
 
 - **Remote ID in Wi-Fi beacons.** This is the most common kind on DJI drones.
 - **Remote ID over Wi-Fi "NAN".** A second Wi-Fi method some drones and add-on modules use. The device joins the pieces of each drone's messages into one contact.
-- **Drone-maker radios.** Every Wi-Fi device has a hardware address, and the first half of the address names the maker. A DJI or Autel address with no Remote ID becomes a hint, not a contact.
+- **Drone-maker radios.** Every Wi-Fi device has a hardware address, and the first half of the address names the maker. The list covers DJI, Autel, Yuneec, FIMI, Hubsan, Zero Zero and others, checked against the official IEEE registry. The scanner also reads the Wi-Fi network name, so a drone with a random or generic address still matches by its name. Either one, with no Remote ID, becomes a hint, not a contact.
 - **5.8 GHz video-style traffic.** A lot of Wi-Fi traffic that doesn't belong to any nearby router suggests an FPV video link. This is also a hint.
 
 Each drone's signal strength is shown in dBm. Numbers closer to zero are stronger: about −40 is very close, and −90 is barely heard. When the strength keeps rising over several seconds, the drone is marked CLOSING.
 
-The main board can also hear Remote ID over Bluetooth, but that is switched off in the current build until the replacement S3 board is in. For now, a drone that broadcasts Remote ID only over Bluetooth won't show up by radio.
+A second scanner, the XIAO ESP32-C3, listens for Remote ID over Bluetooth the whole time. It hears ordinary Bluetooth 4 broadcasts, and Bluetooth 5 Long Range ones when it is built with that option. It passes each drone to the main board the same way the Wi-Fi scanner does, so one drone heard both ways shows up as one contact marked W+B.
 
 ### The sound side
 
@@ -126,7 +130,7 @@ There are four screens, shown as tabs under the top bar: HOME, RF, AUDIO and SYS
 **The top bar** reads DRONE WATCH on the left. On the right are four status words:
 
 - **C5** is green while the radio scanner is talking to the main board, and red if it has gone silent.
-- **BT** is grey, because Bluetooth is off in this build.
+- **BT** is green while the Bluetooth scanner is talking to the main board, and red if it has gone silent.
 - **MIC** is green when the microphones are running.
 - **Battery percent** is shown on the far right, or USB when plugged in.
 
@@ -139,13 +143,13 @@ The whole bar flashes red while there is an alert. A small red square on a tab m
 - **The big card** says CLEAR (green), ACOUSTIC (amber, heard but no radio), RF HINT (purple, a drone-maker radio or FPV video, no Remote ID) or RF CONTACT (red, a drone broadcasting Remote ID). The line under it gives the newest contact's ID and signal strength, and CLOSING if it is getting nearer.
 - **The small compass** on the right, labelled AUDIO, shows the direction of a sound the microphones think is a drone.
 - **CONTACTS** lists up to four drones, newest first: ID, type, signal strength with a bar, ^ if closing, how long ago it was last heard, and WIFI or BLE.
-- **The bottom strip** shows hints: ! DJI followed by an address means a drone-maker radio, and \~5.8G FPV means video-like traffic.
+- **The bottom strip** shows hints: ! DJI followed by a network name (or a hardware address) means a drone-maker radio, and \~5.8G FPV means video-like traffic.
 
 ### RF list
 
 <img src="img/screen-rf-list.png" width="480" alt="RF list with two contacts">
 
-Every drone heard by radio in the last 15 minutes, up to seven on screen. OP in red means the drone is reporting where its pilot is. ^ means closing and v means moving away. A contact turns grey after 60 seconds without a signal, and drops off the list after 15 minutes. Turn the knob to pick one, then push to open it.
+Every drone heard by radio in the last 15 minutes, up to seven on screen. When there are no Remote ID contacts but there are hints, this screen lists the hints instead: maker, network name, address and signal strength, tagged MAC (matched by address), NAME (matched by network name) or BOTH. OP in red means the drone is reporting where its pilot is. ^ means closing and v means moving away. A contact turns grey after 60 seconds without a signal, and drops off the list after 15 minutes. Turn the knob to pick one, then push to open it.
 
 ### RF detail
 
@@ -185,7 +189,7 @@ Turn the knob to pick a row and push to change it. Every setting is saved.
 | Array check (cal) | push twice to start |
 | Clear contacts | push twice to wipe the contact list |
 
-Under the settings are system details: uptime, battery voltage, how many Remote ID messages and drone-maker radios have been heard, and memory and processing time.
+Under the settings are system details: uptime, battery voltage, how many Remote ID messages and drone-maker radios have been heard, how many Bluetooth packets per second the Bluetooth scanner hears (LR means it was built with Long Range), and memory and processing time.
 
 ## Lights and sounds
 
@@ -231,7 +235,7 @@ No single detector catches every drone. CLEAR means nothing was detected, not th
 
 **Missed by radio:**
 
-- Drones that broadcast Remote ID only over Bluetooth, while Bluetooth is switched off in this build.
+- Bluetooth 5 Long Range Remote ID, if the Bluetooth scanner was built without the Long Range option (SYS shows LR when it has it).
 - Drones without Remote ID that don't use Wi-Fi. Most modern DJI drones talk to their controller on DJI's own radio system, not Wi-Fi.
 - FPV drones with analog or DJI digital video. Neither is Wi-Fi, so only the microphones can hear them. A separate 5.8 GHz detector is planned for this.
 
@@ -253,7 +257,8 @@ No single detector catches every drone. CLEAR means nothing was detected, not th
 
 | You see | Likely cause | Try this |
 | --- | --- | --- |
-| C5 red in the top bar; SYS says C5 silent | the radio scanner stopped talking to the main board | switch off and on; check the two UART wires and ground between the boards |
+| C5 red in the top bar; SYS says C5 silent | the Wi-Fi scanner stopped talking to the main board | switch off and on; check the two UART wires and ground between the boards |
+| BT red in the top bar; SYS says BLE silent or BLE no link | the Bluetooth scanner stopped talking to the main board | switch off and on; check its TX wire to the main board's G39 and its ground; make sure its antenna is plugged in |
 | MIC red, or NO MICS on AUDIO | the microphones failed to start | switch off and on; check the mic cable at the board's mic header |
 | NO DATA ON SD0 or SD1 | one microphone data line is silent | check that line's wire and its 100k pull-down; reseat the mic cable |
 | DEAD next to one arm in MIC LEVEL | that microphone sends nothing | check its wires and its L/R jumper |
